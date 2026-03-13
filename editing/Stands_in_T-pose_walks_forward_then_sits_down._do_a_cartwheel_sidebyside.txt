@@ -1,0 +1,5 @@
+Prompt for this video:
+
+"walk" → "do a cartwheel"
+
+Original (left) | Edited (right)

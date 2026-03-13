@@ -1,0 +1,5 @@
+Prompt for this video:
+
+"walk" → "jump in place"
+
+Original (left) | Edited (right)

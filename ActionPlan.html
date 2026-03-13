@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="description"
+    content="ActionPlan: Future-Aware Streaming Motion Synthesis via Frame-Level Action Planning">
+  <meta property="og:title" content="ActionPlan">
+  <meta property="og:description"
+    content="ActionPlan: Future-Aware Streaming Motion Synthesis via Frame-Level Action Planning">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="hero/ActionPlan_icon.png">
+
+  <title>ActionPlan: Future-Aware Streaming Motion Synthesis</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="./Files/bulma.min.css">
+  <link rel="stylesheet" href="./Files/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./Files/bulma-slider.min.css">
+  <link rel="stylesheet" href="./Files/fontawesome.all.min.css">
+  <link rel="stylesheet" href="./Files/academicons.min.css">
+  <link rel="stylesheet" href="./Files/index.css">
+
+  <script src="./Files/jquery.min.js"></script>
+  <script defer src="./Files/fontawesome.all.min.js"></script>
+  <script src="./Files/bulma-carousel.min.js"></script>
+  <script src="./Files/bulma-slider.min.js"></script>
+  <script src="./stream_timeline_data.js"></script>
+  <script src="./Files/index.js"></script>
+
+  <style>
+    /* ── Streaming timeline overlay ──────────────────────────────── */
+    .streaming-timeline {
+      position: relative;
+      width: 100%;
+      height: 14px;
+      margin-top: 8px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .timeline-track {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+    }
+    .timeline-segment {
+      height: 100%;
+      flex-shrink: 0;
+      transition: opacity 0.15s ease;
+    }
+    .timeline-playhead {
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+      background: rgba(0,0,0,0.6);
+      border-radius: 2px;
+      pointer-events: none;
+      transition: left 0.05s linear;
+    }
+
+    /* ── Video column styles ─────────────────────────────────────── */
+    .video-column-ours {
+      background-color: #e8f5e9;
+      border: 4px solid #4CAF50;
+      border-radius: 8px;
+      padding: 10px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-column-base {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      height: 100%;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+    .caption-ours  { color: #1b5e20; font-weight: bold; font-size: 1.15rem; margin-bottom: 6px; text-align: center; }
+    .caption-base  { font-weight: 600; color: #444; font-size: 1.15rem; margin-bottom: 6px; text-align: center; }
+    .caption-error { color: #d32f2f; font-size: 0.9rem; margin-top: 6px; font-style: italic; text-align: center; }
+
+    /* ── Prompt box ──────────────────────────────────────────────── */
+    .prompt-box {
+      background-color: #f5f5f5;
+      padding: 0.9rem 1.4rem;
+      margin-bottom: 1.25rem;
+      border-radius: 4px;
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: #333;
+    }
+
+    /* ── Carousel item spacing ───────────────────────────────────── */
+    .results-carousel .item {
+      padding: 0 10px 40px 10px;
+    }
+
+    /* ── Carousel nav arrows pushed further to the sides ────────── */
+    .carousel-nav-left  { left:  -2.5rem !important; }
+    .carousel-nav-right { right: -2.5rem !important; }
+    .carousel-nav-left button,
+    .carousel-nav-right button {
+      width: 3rem !important;
+      min-width: 3rem !important;
+    }
+
+    /* ── T2M carousel: minimal side padding so arrows sit at the edge ─ */
+    #t2m-carousel .item {
+      padding-left:  0;
+      padding-right: 0;
+    }
+
+    /* ── Editing / in-betweening: room for outside arrows ─────────── */
+    #editing-carousel .item,
+    #inbetweening-carousel .item {
+      padding-left:  3rem;
+      padding-right: 3rem;
+    }
+
+    /* ── Tighter gap between T2M video columns ───────────────────── */
+    #t2m-carousel .columns.is-multiline {
+      margin-left:  -0.35rem;
+      margin-right: -0.35rem;
+    }
+    #t2m-carousel .column.is-4 {
+      padding: 0.35rem;
+    }
+
+    /* ── Streaming comparison row ────────────────────────────────── */
+    .streaming-row {
+      display: flex;
+      gap: 16px;
+    }
+    .streaming-video-column {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+    }
+    .streaming-video-column.streaming-ours {
+      background-color: #e8f5e9;
+      border: 4px solid #4CAF50;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.09);
+    }
+    .streaming-caption {
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .streaming-ours .streaming-caption { color: #1b5e20; }
+    .streaming-segment-prompt {
+      font-size: 0.9rem;
+      color: #555;
+      text-align: center;
+      margin-bottom: 8px;
+      min-height: 1.5em;
+    }
+    .streaming-critique {
+      font-size: 0.88rem;
+      color: #d32f2f;
+      text-align: center;
+      margin-top: 8px;
+      font-style: italic;
+    }
+    @media (max-width: 768px) {
+      .streaming-row { flex-direction: column; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ══ Navbar ══════════════════════════════════════════════════════ -->
+<nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false"
+       data-target="mainNavbar">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div id="mainNavbar" class="navbar-menu">
+    <div class="navbar-start" style="flex-grow:1; justify-content:center;">
+      <a class="navbar-item is-size-5" href="#demo">Real-time Demo</a>
+      <a class="navbar-item is-size-5" href="#abstract">Abstract</a>
+      <a class="navbar-item is-size-5" href="#method">Method</a>
+      <a class="navbar-item is-size-5" href="#comparisons">Comparisons</a>
+      <a class="navbar-item is-size-5" href="#applications">Applications</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ Hero ════════════════════════════════════════════════════════ -->
+<section class="hero" style="margin-top: 3.25rem;">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+
+          <h1 class="title is-1 publication-title"
+              style="display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap;">
+            <img src="hero/ActionPlan_icon.png"
+                 style="height:3em; width:auto;" alt="ActionPlan icon"/>
+            <span>ActionPlan: Future-Aware Streaming Motion Synthesis via Frame-Level Action Planning</span>
+          </h1>
+
+          <div class="is-size-4" style="margin-top:10px; margin-bottom:12px; font-weight:800;">
+            arXiv 2026
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Eric Nazarenus<sup>*1</sup>,&nbsp;</span>
+            <span class="author-block">Chuqiao Li<sup>*†1</sup>,&nbsp;</span>
+            <span class="author-block">Yannan He<sup>1</sup>,&nbsp;</span>
+            <span class="author-block">Xianghui Xie<sup>1,2</sup>,&nbsp;</span>
+            <span class="author-block">Jan Eric Lenssen<sup>2</sup>,&nbsp;</span>
+            <span class="author-block">Gerard Pons-Moll<sup>1,2</sup></span>
+          </div>
+
+          <div class="is-size-6 publication-authors" style="margin-top:8px; color:#555;">
+            <span><sup>1</sup>Tübingen AI Center, University of Tübingen, Germany</span>
+            &ensp;
+            <span><sup>2</sup>Max Planck Institute for Informatics, Saarland Informatics Campus, Germany</span>
+            <br>
+            <em><sup>*</sup>Equal contribution &ensp; <sup>†</sup>Corresponding author</em>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="#" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="#" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="ai ai-arxiv"></i></span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="#" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fab fa-github"></i></span>
+                  <span>Code</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="#demo" class="external-link button is-normal is-rounded is-dark" style="opacity:0.6; cursor:default;" onclick="return false;">
+                  <span class="icon"><i class="fas fa-play-circle"></i></span>
+                  <span>Demo (Coming Soon)</span>
+                </a>
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Real-time Demo ══════════════════════════════════════════════ -->
+<section class="section" id="demo" style="background-color:#fcfcfc;">
+  <div class="container is-max-widescreen">
+
+    <!-- Interactive interface teaser -->
+    <div style="max-width:960px; margin:0 auto 2.5rem auto;">
+      <div class="has-text-centered">
+        <div style="border:2px solid #4CAF50; border-radius:8px; overflow:hidden;
+                    box-shadow:0 5px 15px rgba(0,0,0,0.18);">
+          <video autoplay controls muted loop playsinline width="100%">
+            <source src="hero/Demo_Hero.mp4" type="video/mp4">
+          </video>
+        </div>
+        <p class="subtitle has-text-centered" style="margin-top:8px;">
+          <strong>Real-time Demo:</strong> ActionPlan enables high-quality real-time motion streaming — showcased inside our interactive interface.
+        </p>
+      </div>
+    </div>
+
+    <!-- G1 Robot Demo -->
+    <h3 class="title is-4 has-text-centered">🤖 ActionPlan on Unitree G1</h3>
+    <div style="max-width:960px; margin:0 auto;">
+      <p class="subtitle is-5 has-text-centered" style="margin-bottom:1.25rem; color:#333;">
+        Our streaming motion generation transfers directly to a Unitree G1 humanoid robot using
+        <strong>SONIC</strong> as the low-level controller, demonstrating real-world deployment.
+      </p>
+      <div style="border:2px solid #ddd; border-radius:8px; overflow:hidden;
+                  box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+        <video controls muted loop playsinline width="100%">
+          <source src="g1/g1_demo_v1.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ Abstract ════════════════════════════════════════════════════ -->
+<section class="section" id="abstract">
+  <div class="container is-max-widescreen">
+    <div class="columns is-centered">
+      <div class="column is-four-fifths has-text-centered">
+        <h2 class="title is-3">Abstract</h2>
+
+        <div class="content is-size-5"
+             style="font-weight:bold; color:#4a4a4a; margin-bottom:1.5rem;
+                    background:#fefefe; border-radius:8px; padding:12px 16px;
+                    border:1px dashed #ccc;">
+          <span style="color:#4CAF50;">TL;DR:</span>
+          A unified motion diffusion model that bridges <strong>real-time streaming</strong> and
+          <strong>high-quality offline generation</strong> via per-frame action planning —
+          <strong>5.25&times; faster</strong> streaming with <strong>18% better FID</strong>.
+        </div>
+
+        <div class="content has-text-justified is-size-5">
+          <p>
+            We present <strong>ActionPlan</strong>, a unified motion diffusion framework that bridges
+            real-time streaming with high-quality offline generation within a single model. The core idea
+            is to introduce a <em>per-frame action plan</em>: the model predicts frame-level text latents
+            that act as dense semantic anchors throughout denoising, and uses them to denoise the full
+            motion sequence with combined semantic and motion cues.
+          </p>
+          <p>
+            To support this structured workflow, we design latent-specific diffusion steps, allowing each
+            motion latent to be denoised independently and sampled in flexible orders at inference. As a
+            result, ActionPlan can run in a history-conditioned, future-aware mode for real-time
+            streaming, while also supporting high-quality offline generation.
+          </p>
+          <p>
+            The same mechanism further enables zero-shot motion editing and in-betweening without
+            additional models. Experiments demonstrate that our real-time streaming is
+            <strong>5.25&times; faster</strong> while achieving
+            <strong>18% motion quality improvement</strong> over the best previous method in terms of FID.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ Method ══════════════════════════════════════════════════════ -->
+<section class="section" id="method" style="background-color:#fcfcfc;">
+  <div class="container is-max-widescreen">
+    <h2 class="title is-3 has-text-centered">Method Overview</h2>
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <img src="hero/method7.png" alt="Method Overview" style="width:100%; border-radius:6px;">
+        <div class="content has-text-justified is-size-6" style="margin-top:16px; color:#333;">
+          <p>
+            <strong>Overview of our ActionPlan.</strong>
+            (a) During training, motion latents are noised with per-frame heterogeneous timesteps
+            while frame-level text latents share a single global timestep. A Transformer Denoiser
+            is trained to jointly reconstruct both. During inference, the model operates in two
+            modes: in <strong>offline mode</strong> (b), the action plan is fully generated first
+            and then motion latents are denoised in random pyramid order; in
+            <strong>streaming mode</strong> (c), the action plan is denoised alongside the first
+            motion frame, followed by raster progressive denoising of the remaining latents.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ T2M Qualitative Comparison ═════════════════════════════════ -->
+<section class="section" id="comparisons" style="background-color:#f5f5f5;">
+  <div class="container is-max-widescreen">
+    <h2 class="title is-3 has-text-centered">👑 Text-to-Motion Comparison</h2>
+
+    <div class="content has-text-centered box"
+         style="background:#fff; border-left:4px solid #4CAF50; margin-bottom:2rem;">
+      <p class="is-size-5">
+        ActionPlan improves FID by <strong>53%</strong> over MotionStreamer and
+        <strong>21.6%</strong> over MARDM. R-Precision Top-3: <strong>0.892</strong>
+        vs MARDM (0.860) and MotionStreamer (0.859).
+      </p>
+    </div>
+
+    <div id="t2m-carousel" class="carousel results-carousel">
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"The person waddles low to the ground and then stands up and walks back"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/0_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/0_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No waddling motion, steps sideways</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/0_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Sits down instead of waddling, no walking back</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"Person is adjusting something on their head"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/1_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/1_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">More on the back than the head</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/1_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No adjusting motion</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"The person raises their right foot up to their knee and then kicks their foot out, then returns their foot to their knee"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/2_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/2_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">First kicks left, no knee raising</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/2_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Kicks right and left, no knee raising</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person does small movements as if they were imitating cooking"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/3_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/3_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Big motion, not really cooking</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/3_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No cooking motion</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A figure tip toes around while walking in a slolam like motion"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/4_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/4_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No tip-toeing motion</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/4_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No tip-toeing motion</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A man steps forward and does a handstand"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/5_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/5_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Handstand is unrealistic</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/5_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Steps back first, does cartwheel</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person doing karate type motion forward and then backwards"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/6_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/6_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No karate motion, very small forward and backward motion</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/6_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Fighting but not karate-specific, very small motion</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"The person was walking forward slowly"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/7_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/7_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Walks in downward slope</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/7_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Walks in downward slope</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person is making rapid swinging motions with their right leg in the air, while holding onto something with their right hand"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/8_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/8_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Doesn't swing right leg, no holding onto something</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/8_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Doesn't hold onto something</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A stick figure jumps side ways"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/9_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/9_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Jumps up instead of sideways</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/9_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Jumps up instead of sideways</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person walks diagonally right to left five paces in a karate fighting like motion then they take one step backwards"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/10_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/10_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Walks in a circle, no karate motion</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/10_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Karate motion but doesn't move diagonally</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person puts their hands on their hips then checks the time on their left wrist"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/11_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/11_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No wrist checking motion</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/11_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No hands on hips, no wrist checking motion</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person is dancing with expressive arm movement and then jumps forward"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/12_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/12_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No jump forward</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/12_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No jump forward</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"A person dribbles a ball with one hand then the other and proceeds to shoot ball into goal with both hands"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/13_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/13_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No dribbling motion</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/13_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No dribbling motion, no shooting motion</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"This person walks forward and picks something up then walks back"</div>
+        <div class="columns is-multiline is-centered">
+          <div class="column is-4">
+            <div class="video-column-ours">
+              <p class="caption-ours">🏆 ActionPlan (Ours)</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="t2m/14_mesh.mp4" type="video/mp4">
+              </video>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MARDM</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/mardm_t2m/14_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">Walks left instead of back</p>
+            </div>
+          </div>
+          <div class="column is-4">
+            <div class="video-column-base">
+              <p class="caption-base">MotionStreamer</p>
+              <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+                <source src="model_comparisons/ms_t2m/14_mesh.mp4" type="video/mp4">
+              </video>
+              <p class="caption-error">No clear picking up</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #t2m-carousel -->
+  </div>
+</section>
+
+<!-- ══ Streaming Motion Generation ════════════════════════════════ -->
+<section class="section" id="streaming" style="background-color:#fff;">
+  <div class="container is-max-widescreen">
+    <h2 class="title is-3 has-text-centered">📹 Streaming Motion Comparison</h2>
+
+    <div class="content has-text-centered box"
+         style="background:#f9f9f9; border-left:4px solid #3273dc; margin-bottom:2rem;">
+      <p class="is-size-5">
+        ActionPlan vs MotionStreamer on long-horizon motion generation with multiple chained prompts from HumanML3D.
+        ActionPlan remains <strong>future-aware</strong> while running up to <strong>9&times; faster</strong>
+        during continuous streaming.
+      </p>
+    </div>
+
+    <div id="streaming-carousel" class="carousel results-carousel">
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_0_0_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_0_0">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_0_0_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_0_0_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No arm movement in segment 2, no exercise motion in segment 3, doesn't cross legs in segment 4</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_1_1_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_1_1">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_1_1_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_1_1_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No walking in segment 3, no walking while holding the head in segment 4</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_2_2_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_2_2">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_2_2_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_2_2_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">Doesn't sit down in segment 4</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_3_3_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_3_3">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_3_3_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_3_3_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">Lacks varied arm movement in segment 2; fails to stay still in segment 3; no jogging in segment 4; no walking forward in segment 5</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_4_4_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_4_4">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_4_4_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_4_4_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">Doesn't go to his knee in segment 3</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_5_5_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_5_5">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_5_5_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_5_5_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">Doesn't put up their knee in segment 2</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_6_6_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_6_6">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_6_6_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_6_6_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No basketball signals, unnatural vertical movement in segment 2</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_7_7_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_7_7">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_7_7_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_7_7_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No floor sweeping in segment 3</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_8_8_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_8_8">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_8_8_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_8_8_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No foot-dragging in segment 4, no stumbling backwards in segment 5</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_9_9_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_9_9">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_9_9_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_9_9_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No ballet dance in segment 3, doesn't raise hands in segment 4</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_10_dancing_waltz_forward_jum_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_10_dancing_waltz_forward_jum">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_10_dancing_waltz_forward_jump_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_10_dancing_waltz_forward_jump_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">No forward walking while jumping in segment 4</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="streaming-row">
+          <div class="streaming-video-column streaming-ours">
+            <div class="streaming-caption">🏆 ActionPlan (Ours)</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_11_clap_limp_crouch_throw_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_11_clap_limp_crouch_throw">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+          </div>
+          <div class="streaming-video-column">
+            <div class="streaming-caption">MotionStreamer</div>
+            <p class="streaming-segment-prompt"></p>
+            <video autoplay muted loop playsinline style="width:100%;border-radius:6px;">
+              <source src="streaming_gallery/long_seq_11_clap_limp_crouch_throw_motionstreamer_mesh.mp4" type="video/mp4">
+            </video>
+            <div class="streaming-timeline" data-video-id="long_seq_11_clap_limp_crouch_throw_motionstreamer">
+              <div class="timeline-track"></div><div class="timeline-playhead"></div>
+            </div>
+            <p class="streaming-critique">Walks sideways instead of limping in segment 2, throws with left arm in segment 3</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #streaming-carousel -->
+  </div>
+</section>
+
+<!-- ══ Applications ════════════════════════════════════════════════ -->
+<section class="section" id="applications" style="background-color:#f5f5f5;">
+  <div class="container is-max-widescreen">
+    <h2 class="title is-3 has-text-centered">🎯 Applications</h2>
+
+    <div class="content has-text-centered box"
+         style="background:#fff; border-left:4px solid #4CAF50; margin-bottom:2.5rem;">
+      <p class="is-size-5">
+        ActionPlan supports diverse downstream applications <strong>zero-shot, without fine-tuning</strong>.
+      </p>
+      <div style="margin-top:0.5rem;">
+        <p class="is-size-5" style="margin-bottom:0.25rem;"><strong>✏️ Motion Editing:</strong> Replace selected segments with new text-conditioned motion, keeping the rest unchanged.</p>
+        <p class="is-size-5" style="margin-bottom:0;"><strong>↔️ In-Betweening:</strong> Fill in motion between fixed start/end poses guided by a text prompt.</p>
+        <p class="is-size-5" style="margin-top:0.5rem; margin-bottom:0;"><strong>White</strong> = original &nbsp;|&nbsp; <strong style="color:#4CAF50;">Green</strong> = edited / generated.</p>
+      </div>
+    </div>
+
+    <!-- ── Motion Editing ── -->
+    <h3 class="title is-4 has-text-centered" style="margin-bottom:0.5rem;">✏️ Motion Editing</h3>
+    <!-- <p class="subtitle is-5 has-text-centered" style="margin-bottom:1.5rem; color:#555;">
+      Regenerate selected latents conditioned on a new prompt while preserving others.
+    </p> -->
+
+    <div id="editing-carousel" class="carousel results-carousel" style="margin-bottom:3rem;">
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"walk" &rarr; "do a cartwheel"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="editing/Stands_in_T-pose_walks_forward_then_sits_down._do_a_cartwheel_sidebyside.mp4" type="video/mp4">
+            </video>
+            <p class="has-text-centered is-size-6" style="color:#888;margin-top:6px;">Original (left) | Edited (right)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"rising arms up and down" &rarr; "do a handstand"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="editing/Rolls_arms_raises_arms_up_and_down_then_moves_arm_side_to_side._do_a_handstand_sidebyside.mp4" type="video/mp4">
+            </video>
+            <p class="has-text-centered is-size-6" style="color:#888;margin-top:6px;">Original (left) | Edited (right)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"walk" &rarr; "jump in place"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="editing/Stands_walks_forward_then_turns_to_the_right._jump_in_place_sidebyside.mp4" type="video/mp4">
+            </video>
+            <p class="has-text-centered is-size-6" style="color:#888;margin-top:6px;">Original (left) | Edited (right)</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"walk forward" &rarr; "do a side shuffle"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="editing/Steps_backward_walks_forward_then_does_an_about-face._do_a_side_shuffle_sidebyside.mp4" type="video/mp4">
+            </video>
+            <p class="has-text-centered is-size-6" style="color:#888;margin-top:6px;">Original (left) | Edited (right)</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #editing-carousel -->
+
+    <!-- ── In-Betweening ── -->
+    <h3 class="title is-4 has-text-centered" style="margin-bottom:0.5rem;">↔️ In-Betweening</h3>
+    <!-- <p class="subtitle is-5 has-text-centered" style="margin-bottom:1.5rem; color:#555;">
+      Given fixed start and end poses + text, fill in the intermediate motion.
+    </p> -->
+
+    <div id="inbetweening-carousel" class="carousel results-carousel">
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"a person hops backwards, then defends themselves"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="inbetweening/0_mesh.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"jumping forward quickly then stopping"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="inbetweening/1_mesh.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"person is standing forward doing jumping jacks"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="inbetweening/2_mesh.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="prompt-box has-text-centered">"a person walks up stairs turns left and walks back down stairs"</div>
+        <div class="columns is-centered">
+          <div class="column">
+            <video autoplay muted loop playsinline style="width:100%;border-radius:8px;">
+              <source src="inbetweening/3_mesh.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #inbetweening-carousel -->
+
+  </div>
+</section>
+
+<!-- ══ BibTeX ══════════════════════════════════════════════════════ -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{nazarenus2026actionplan,
+  title   = {{ActionPlan}: Future-Aware Streaming Motion Synthesis via Frame-Level Action Planning},
+  author  = {Nazarenus, Eric and Li, Chuqiao and He, Yannan and Xie, Xianghui and Lenssen, Jan Eric and Pons-Moll, Gerard},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</code></pre>
+  </div>
+</section>
+
+<script>
+  // Navbar burger
+  document.addEventListener('DOMContentLoaded', function () {
+    var burger = document.querySelector('.navbar-burger');
+    var menu   = document.getElementById(burger.dataset.target);
+    burger.addEventListener('click', function () {
+      burger.classList.toggle('is-active');
+      menu.classList.toggle('is-active');
+    });
+  });
+
+  // Carousels
+  $(document).ready(function () {
+    bulmaCarousel.attach('#t2m-carousel', {
+      slidesToScroll: 1,
+      slidesToShow: 1,
+      pagination: true,
+      loop: true,
+      infinite: true,
+      autoplay: false,
+      navigation: true,
+    });
+
+    bulmaCarousel.attach('#streaming-carousel', {
+      slidesToScroll: 1,
+      slidesToShow: 1,
+      pagination: true,
+      loop: true,
+      infinite: true,
+      autoplay: false,
+      navigation: true,
+    });
+
+    bulmaCarousel.attach('#editing-carousel', {
+      slidesToScroll: 1,
+      slidesToShow: 1,
+      pagination: true,
+      loop: true,
+      infinite: true,
+      autoplay: false,
+      navigation: true,
+    });
+
+    bulmaCarousel.attach('#inbetweening-carousel', {
+      slidesToScroll: 1,
+      slidesToShow: 1,
+      pagination: true,
+      loop: true,
+      infinite: true,
+      autoplay: false,
+      navigation: true,
+    });
+  });
+</script>
+
+</body>
+</html>

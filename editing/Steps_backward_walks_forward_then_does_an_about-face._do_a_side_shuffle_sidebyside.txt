@@ -1,0 +1,5 @@
+Prompt for this video:
+
+"walk forward" → "do a side shuffle"
+
+Original (left) | Edited (right)

@@ -1,0 +1,19 @@
+{
+  "segments": [
+    {
+      "prompt": "the person walks forward slowly."
+    },
+    {
+      "prompt": "a person slowly walked forward"
+    },
+    {
+      "prompt": "a man walks counterclockwise in a circle"
+    },
+    {
+      "prompt": "a person walks while dragging his feet."
+    },
+    {
+      "prompt": "person walks forward, stumbles back, and continues forward"
+    }
+  ]
+}

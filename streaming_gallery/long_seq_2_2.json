@@ -1,0 +1,16 @@
+{
+  "segments": [
+    {
+      "prompt": "person is walking backwards at medium pace"
+    },
+    {
+      "prompt": "a person walks forward and to the side, before stopping."
+    },
+    {
+      "prompt": "a person appears to be running in place."
+    },
+    {
+      "prompt": "a person is sitting with both hands together."
+    }
+  ]
+}
